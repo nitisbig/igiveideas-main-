@@ -2,43 +2,25 @@
 import Layout from '../layouts/Layout.astro';
 
 const ideas = [
-	{
-		title: 'Taste is the last moat',
-		body: 'When everyone can generate a thousand variations in a second, the only scarce thing left is knowing which one is good. That judgement is taste.',
-	},
-	{
-		title: 'Psychology before pixels',
-		body: 'A brand is a promise a mind makes to itself. Design the feeling first; the colours and type are just how you keep the promise.',
-	},
-	{
-		title: 'Human connection scales slowly — on purpose',
-		body: 'The parts of a business that feel handmade are the parts people remember. Automate the boring, hand-finish the meaningful.',
-	},
-	{
-		title: 'Run it like a workshop, not a factory',
-		body: 'Leonardo ran a bottega: apprentices, experiments, unfinished masterpieces. Treat AI as your apprentice, not your replacement.',
-	},
+	'How to make machine works for you',
+	'How to convert ideas into code',
+	"Let's fix the token",
+	'',
 ];
 ---
 
 <Layout
 	title="Ideas — igiveideas"
-	description="Short essays on taste, psychology and human connection — and how to add all three to tasteless AI output."
+	description="Short notes on making machines work for you, converting ideas into code, and fixing the token."
 	path="/ideas"
 >
 	<section class="page">
-		<h1>Ideas</h1>
-		<p class="intro">
-			Notes on adding taste to the machine. Branding needs psychology and human connection — here is
-			where I think out loud about both.
-		</p>
-
-		<ul class="cards">
+		<ul class="ideas">
 			{
 				ideas.map((idea) => (
 					<li>
-						<h2>{idea.title}</h2>
-						<p>{idea.body}</p>
+						<span class="hash">#</span>
+						{idea && <span class="text">{idea}</span>}
 					</li>
 				))
 			}
@@ -48,44 +30,33 @@ const ideas = [
 
 <style>
 	.page {
+		flex: 1;
+		width: 100%;
 		max-width: 70ch;
 		margin: 0 auto;
+		padding-top: clamp(24px, 5vw, 56px);
 	}
 
-	h1 {
-		font-weight: 500;
-		font-size: clamp(1.8rem, 5vw, 2.6rem);
-		margin: 8px 0 0;
-	}
-
-	.intro {
-		color: var(--ink-soft);
-		font-size: 1.15rem;
-		margin-top: 12px;
-	}
-
-	.cards {
+	.ideas {
 		list-style: none;
-		padding: 0;
-		margin: 32px 0 0;
-		display: grid;
-		gap: 22px;
-	}
-
-	.cards li {
-		border: 2px solid var(--line);
-		border-radius: 16px;
-		padding: 22px 24px;
-	}
-
-	.cards h2 {
-		margin: 0 0 8px;
-		font-weight: 500;
-		font-size: 1.4rem;
-	}
-
-	.cards p {
 		margin: 0;
-		color: var(--ink-soft);
+		padding: 0;
+		display: grid;
+		gap: clamp(20px, 3vw, 30px);
+	}
+
+	.ideas li {
+		display: flex;
+		gap: 12px;
+		align-items: baseline;
+		font-size: clamp(1.1rem, 2.4vw, 1.4rem);
+	}
+
+	.hash {
+		color: var(--accent);
+	}
+
+	.text {
+		color: var(--ink);
 	}
 </style>
