@@ -1,11 +1,239 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'WebSite',
+	name: 'igiveideas',
+	url: 'https://igiveideas.com',
+	description:
+		'Branding needs taste, psychology and human connection. Learn how to add taste to your AI output.',
+};
 ---
 
-<Layout>
-	<Welcome />
+<Layout
+	title="igiveideas — add taste to AI output"
+	description="Do you know why the big AI labs are wrong about branding? Because AI output is tasteless. Branding needs taste, psychology and human connection. Learn how to run business like Leonardo da Vinci."
+	path="/"
+>
+	<script type="application/ld+json" slot="head" set:html={JSON.stringify(jsonLd)} />
+
+	<article class="hero">
+		<img
+			class="portrait"
+			src="/leonardo.svg"
+			width="240"
+			height="240"
+			alt="Line drawing of Leonardo da Vinci"
+		/>
+		<h1>How to run business like Leonardo da Vinci?</h1>
+
+		<p class="lede">
+			Do you know why the anthropic, openai and google are wrong about AI? Because the output from
+			AI is <em>tasteless</em>. Branding needs taste, psychology, human connection.
+		</p>
+
+		<p class="teach">i am teaching you how to add taste to the AI output.</p>
+
+		<form id="idea-form" class="idea">
+			<!-- Step 1: the idea -->
+			<div class="step" data-step="idea">
+				<label for="idea">Write anything here <span>[ideas, website, problem]</span>:</label>
+				<div class="row">
+					<input
+						id="idea"
+						name="idea"
+						type="text"
+						autocomplete="off"
+						required
+						placeholder=""
+					/>
+					<button type="submit">Submit</button>
+				</div>
+			</div>
+
+			<!-- Step 2: the email -->
+			<div class="step" data-step="email" hidden>
+				<label for="email">Where should the magic land? <span>[your email]</span>:</label>
+				<div class="row">
+					<input
+						id="email"
+						name="email"
+						type="email"
+						autocomplete="email"
+						required
+						placeholder="you@example.com"
+					/>
+					<button type="submit">Send</button>
+				</div>
+			</div>
+
+			<!-- Step 3: success -->
+			<p class="step done" data-step="done" hidden>✦ Just sent the magic in your inbox!</p>
+		</form>
+	</article>
 </Layout>
+
+<script>
+	const form = document.getElementById('idea-form') as HTMLFormElement | null;
+	if (form) {
+		const steps = {
+			idea: form.querySelector('[data-step="idea"]') as HTMLElement,
+			email: form.querySelector('[data-step="email"]') as HTMLElement,
+			done: form.querySelector('[data-step="done"]') as HTMLElement,
+		};
+		const ideaInput = form.querySelector('#idea') as HTMLInputElement;
+		const emailInput = form.querySelector('#email') as HTMLInputElement;
+
+		const show = (el: HTMLElement) => el.removeAttribute('hidden');
+		const hide = (el: HTMLElement) => el.setAttribute('hidden', '');
+
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+
+			// Step 1 -> 2
+			if (!steps.idea.hasAttribute('hidden')) {
+				if (!ideaInput.value.trim()) {
+					ideaInput.reportValidity();
+					return;
+				}
+				hide(steps.idea);
+				show(steps.email);
+				emailInput.focus();
+				return;
+			}
+
+			// Step 2 -> 3
+			if (!steps.email.hasAttribute('hidden')) {
+				if (!emailInput.checkValidity()) {
+					emailInput.reportValidity();
+					return;
+				}
+				// Persist locally so nothing is lost before a backend exists.
+				try {
+					localStorage.setItem(
+						'igiveideas:submission',
+						JSON.stringify({
+							idea: ideaInput.value.trim(),
+							email: emailInput.value.trim(),
+							at: new Date().toISOString(),
+						}),
+					);
+				} catch {
+					/* storage may be unavailable; ignore */
+				}
+				hide(steps.email);
+				show(steps.done);
+			}
+		});
+	}
+</script>
+
+<style>
+	.hero {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		padding-top: clamp(8px, 3vw, 24px);
+	}
+
+	.portrait {
+		width: clamp(160px, 30vw, 240px);
+		height: auto;
+	}
+
+	h1 {
+		font-weight: 500;
+		font-size: clamp(1.4rem, 3.5vw, 2rem);
+		margin: 18px 0 0;
+	}
+
+	.lede,
+	.teach {
+		max-width: 60ch;
+		text-align: left;
+		align-self: center;
+		width: 100%;
+	}
+
+	.lede {
+		margin-top: 36px;
+		font-size: 1.1rem;
+	}
+
+	.teach {
+		margin-top: 22px;
+		font-family: 'Caveat', cursive;
+		font-size: 1.5rem;
+		color: var(--accent);
+	}
+
+	.idea {
+		width: 100%;
+		max-width: 60ch;
+		align-self: center;
+		text-align: left;
+		margin-top: 4px;
+	}
+
+	label {
+		display: block;
+		margin-bottom: 10px;
+	}
+
+	label span {
+		color: var(--ink-soft);
+	}
+
+	.row {
+		display: flex;
+		gap: 12px;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	input {
+		flex: 1;
+		min-width: 200px;
+		background: transparent;
+		border: none;
+		border-bottom: 2px solid var(--line);
+		border-radius: 6px 6px 0 0;
+		padding: 8px 6px;
+		font-family: inherit;
+		font-size: 1rem;
+		color: var(--ink);
+	}
+
+	input:focus {
+		outline: none;
+		border-bottom-color: var(--accent);
+		background: rgba(138, 90, 43, 0.06);
+	}
+
+	button {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 10px;
+		padding: 8px 22px;
+		font-family: inherit;
+		font-size: 1rem;
+		color: var(--ink);
+		cursor: pointer;
+		transition: background 0.2s ease, color 0.2s ease;
+	}
+
+	button:hover {
+		background: var(--ink);
+		color: var(--paper);
+	}
+
+	.done {
+		font-family: 'Caveat', cursive;
+		font-size: 1.7rem;
+		color: var(--accent);
+		margin: 8px 0 0;
+	}
+</style>

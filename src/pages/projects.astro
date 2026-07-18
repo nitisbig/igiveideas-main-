@@ -1,0 +1,105 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const projects = [
+	{
+		name: 'Tasteful',
+		tag: 'in progress',
+		body: 'A workflow that takes raw AI output and re-runs it through a taste, psychology and voice pass until it feels human.',
+	},
+	{
+		name: 'The Bottega Letters',
+		tag: 'ongoing',
+		body: 'A slow email series teaching founders how to add taste to their branding, one Leonardo-sized lesson at a time.',
+	},
+	{
+		name: 'Idea → Inbox',
+		tag: 'live',
+		body: 'Drop an idea, a website or a problem on the home page and get a tasteful, hand-finished response in your inbox.',
+	},
+];
+---
+
+<Layout
+	title="Projects — igiveideas"
+	description="Things being built at igiveideas: tools and experiments for adding taste, psychology and human connection to AI output."
+	path="/projects"
+>
+	<section class="page">
+		<h1>Projects</h1>
+		<p class="intro">
+			Experiments from the workshop. Each one is a small bet that taste beats scale.
+		</p>
+
+		<ol class="list">
+			{
+				projects.map((project) => (
+					<li>
+						<div class="head">
+							<h2>{project.name}</h2>
+							<span class="tag">{project.tag}</span>
+						</div>
+						<p>{project.body}</p>
+					</li>
+				))
+			}
+		</ol>
+	</section>
+</Layout>
+
+<style>
+	.page {
+		max-width: 70ch;
+		margin: 0 auto;
+	}
+
+	h1 {
+		font-weight: 500;
+		font-size: clamp(1.8rem, 5vw, 2.6rem);
+		margin: 8px 0 0;
+	}
+
+	.intro {
+		color: var(--ink-soft);
+		font-size: 1.15rem;
+		margin-top: 12px;
+	}
+
+	.list {
+		list-style: none;
+		padding: 0;
+		margin: 32px 0 0;
+		display: grid;
+		gap: 22px;
+		counter-reset: p;
+	}
+
+	.list li {
+		border-bottom: 2px solid var(--line);
+		padding-bottom: 20px;
+	}
+
+	.head {
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+		flex-wrap: wrap;
+	}
+
+	.list h2 {
+		margin: 0;
+		font-weight: 500;
+		font-size: 1.5rem;
+	}
+
+	.tag {
+		font-family: 'Caveat', cursive;
+		font-size: 1.2rem;
+		color: var(--accent);
+	}
+
+	.list p {
+		margin: 8px 0 0;
+		color: var(--ink-soft);
+	}
+</style>

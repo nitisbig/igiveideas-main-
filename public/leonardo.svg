@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-labelledby="t">
+  <title id="t">Leonardo da Vinci</title>
+  <defs>
+    <clipPath id="c"><circle cx="160" cy="160" r="150"/></clipPath>
+  </defs>
+  <circle cx="160" cy="160" r="150" fill="#f4f0d8"/>
+  <g clip-path="url(#c)" fill="none" stroke="#2a2622" stroke-width="2.4"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- head / bald crown -->
+    <path d="M104 150 C100 96 132 60 168 62 C206 64 226 100 224 146"/>
+    <!-- long flowing hair sides -->
+    <path d="M104 150 C92 190 96 236 118 272 C104 250 100 214 108 182"/>
+    <path d="M224 146 C238 188 236 236 214 274 C230 250 234 214 224 180"/>
+    <!-- brow furrows -->
+    <path d="M118 150 C130 142 146 142 156 150"/>
+    <path d="M176 150 C188 142 204 144 214 152"/>
+    <!-- eyes -->
+    <path d="M126 162 C134 156 146 156 152 163"/>
+    <path d="M182 163 C190 156 202 157 208 164"/>
+    <circle cx="139" cy="163" r="3" fill="#2a2622" stroke="none"/>
+    <circle cx="195" cy="164" r="3" fill="#2a2622" stroke="none"/>
+    <!-- nose -->
+    <path d="M166 158 C162 178 156 196 150 204 C158 210 172 210 180 204"/>
+    <!-- moustache -->
+    <path d="M142 216 C154 210 168 210 178 216 C190 210 204 212 212 220"/>
+    <!-- long beard -->
+    <path d="M132 210 C120 250 130 300 166 320"/>
+    <path d="M198 214 C214 250 206 300 172 322"/>
+    <path d="M150 224 C146 264 156 300 166 320"/>
+    <path d="M184 226 C190 264 180 300 170 320"/>
+    <!-- cheek lines -->
+    <path d="M116 178 C112 196 118 214 130 226"/>
+    <path d="M220 180 C226 198 220 216 206 228"/>
+  </g>
+  <circle cx="160" cy="160" r="150" fill="none" stroke="#2a2622" stroke-width="3"/>
+</svg>

@@ -1,23 +1,183 @@
+---
+const {
+	title = 'igiveideas — add taste to AI output',
+	description = 'Branding needs taste, psychology and human connection. Learn how to run business like Leonardo da Vinci and add taste to your AI output.',
+	path = '/',
+} = Astro.props;
+
+const site = 'https://igiveideas.com';
+const canonical = new URL(path, site).href;
+const ogImage = new URL('/leonardo.svg', site).href;
+
+const nav = [
+	{ label: 'Home', href: '/' },
+	{ label: 'Ideas', href: '/ideas' },
+	{ label: 'Projects', href: '/projects' },
+	{ label: 'About', href: '/about' },
+];
+
+// Normalise current path (strip trailing slash) for active-link matching.
+const current = path.replace(/\/+$/, '') || '/';
+---
+
 <!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
+
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="igiveideas" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={ogImage} />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
+			rel="stylesheet"
+		/>
+
+		<slot name="head" />
 	</head>
 	<body>
-		<slot />
+		<div class="frame">
+			<nav aria-label="Primary">
+				<ul>
+					{
+						nav.map(({ label, href }) => {
+							const target = href.replace(/\/+$/, '') || '/';
+							const isActive = current === target;
+							return (
+								<li>
+									<a href={href} aria-current={isActive ? 'page' : undefined}>
+										{label}
+									</a>
+								</li>
+							);
+						})
+					}
+				</ul>
+			</nav>
+
+			<main>
+				<slot />
+			</main>
+
+			<footer>
+				<p>© {new Date().getFullYear()} igiveideas — taste, psychology, human connection.</p>
+			</footer>
+		</div>
 	</body>
 </html>
 
 <style>
-	html,
-	body {
+	:global(:root) {
+		--paper: #fbfbe8;
+		--ink: #2a2622;
+		--ink-soft: #4d4740;
+		--accent: #8a5a2b;
+		--line: #2a2622;
+	}
+
+	:global(*) {
+		box-sizing: border-box;
+	}
+
+	:global(html),
+	:global(body) {
 		margin: 0;
-		width: 100%;
-		height: 100%;
+		padding: 0;
+	}
+
+	:global(body) {
+		background: var(--paper);
+		color: var(--ink);
+		font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+		font-size: 19px;
+		line-height: 1.6;
+		min-height: 100vh;
+		padding: 24px;
+	}
+
+	.frame {
+		max-width: 1100px;
+		margin: 0 auto;
+		min-height: calc(100vh - 48px);
+		border: 2px solid var(--line);
+		border-radius: 28px;
+		padding: clamp(24px, 5vw, 56px);
+		display: flex;
+		flex-direction: column;
+		/* soft hand-inked shadow */
+		box-shadow: 0 2px 0 rgba(42, 38, 34, 0.15);
+	}
+
+	nav ul {
+		list-style: none;
+		display: flex;
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: clamp(18px, 4vw, 40px);
+		margin: 0 0 8px;
+		padding: 0;
+	}
+
+	nav a {
+		color: var(--ink);
+		text-decoration: none;
+		font-size: 1.15rem;
+		padding: 4px 2px;
+		border-bottom: 2px solid transparent;
+		transition: border-color 0.2s ease, color 0.2s ease;
+	}
+
+	nav a:hover {
+		color: var(--accent);
+	}
+
+	nav a[aria-current='page'] {
+		border-bottom-color: var(--ink);
+	}
+
+	main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+
+	footer {
+		margin-top: 40px;
+		text-align: center;
+		color: var(--ink-soft);
+		font-size: 0.9rem;
+		font-style: italic;
+	}
+
+	@media (max-width: 600px) {
+		:global(body) {
+			padding: 12px;
+			font-size: 18px;
+		}
+		.frame {
+			border-radius: 20px;
+			min-height: calc(100vh - 24px);
+		}
 	}
 </style>

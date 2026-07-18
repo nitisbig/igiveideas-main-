@@ -1,0 +1,58 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+	title="About — igiveideas"
+	description="Why igiveideas exists: the big AI labs optimise for scale, not taste. Branding needs taste, psychology and human connection."
+	path="/about"
+>
+	<section class="page">
+		<h1>About</h1>
+
+		<p>
+			<strong>igiveideas</strong> is a small workshop with one belief: the output from AI is
+			<em>tasteless</em>, and taste is exactly what branding is made of.
+		</p>
+
+		<p>
+			The big labs — anthropic, openai, google — are brilliant at scale. But a brand is not a
+			scaling problem. It is a <em>taste</em> problem, a <em>psychology</em> problem, a
+			<em>human connection</em> problem. Those don't come out of a prompt by default. You have to
+			add them back in.
+		</p>
+
+		<p>
+			So the question I keep asking is the one on the home page: <em>how do you run a business like
+			Leonardo da Vinci?</em> Curious, patient, unafraid to leave things unfinished until they are
+			right. Part artist, part engineer, all judgement.
+		</p>
+
+		<p>
+			If that resonates, drop an idea into the box on the <a href="/">home page</a> and I'll send a
+			little magic to your inbox.
+		</p>
+	</section>
+</Layout>
+
+<style>
+	.page {
+		max-width: 65ch;
+		margin: 0 auto;
+	}
+
+	h1 {
+		font-weight: 500;
+		font-size: clamp(1.8rem, 5vw, 2.6rem);
+		margin: 8px 0 18px;
+	}
+
+	p {
+		font-size: 1.15rem;
+		margin: 0 0 18px;
+	}
+
+	a {
+		color: var(--accent);
+	}
+</style>
