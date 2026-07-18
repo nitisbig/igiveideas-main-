@@ -35,7 +35,7 @@ const jsonLd = {
 
 		<p class="teach">i am teaching you how to add taste to the AI output.</p>
 
-		<form id="idea-form" class="idea">
+		<form id="idea-form" class="idea" novalidate>
 			<!-- Step 1: the idea -->
 			<div class="step" data-step="idea">
 				<label for="idea">Write anything here <span>[ideas, website, problem]</span>:</label>
@@ -54,6 +54,7 @@ const jsonLd = {
 
 			<!-- Step 2: the email -->
 			<div class="step" data-step="email" hidden>
+				<p class="wow">wow that's great!</p>
 				<label for="email">Where should the magic land? <span>[your email]</span>:</label>
 				<div class="row">
 					<input
@@ -66,10 +67,13 @@ const jsonLd = {
 					/>
 					<button type="submit">Send</button>
 				</div>
+				<p class="error" data-step="error" role="alert" hidden></p>
 			</div>
 
 			<!-- Step 3: success -->
-			<p class="step done" data-step="done" hidden>✦ Just sent the magic in your inbox!</p>
+			<p class="step done" data-step="done" hidden>
+				✦ i just sent a gift to you — check it out in your inbox!
+			</p>
 		</form>
 	</article>
 </Layout>
@@ -84,14 +88,21 @@ const jsonLd = {
 		};
 		const ideaInput = form.querySelector('#idea') as HTMLInputElement;
 		const emailInput = form.querySelector('#email') as HTMLInputElement;
+		const errorEl = form.querySelector('[data-step="error"]') as HTMLElement;
+		const emailButton = steps.email.querySelector('button') as HTMLButtonElement;
 
 		const show = (el: HTMLElement) => el.removeAttribute('hidden');
 		const hide = (el: HTMLElement) => el.setAttribute('hidden', '');
 
-		form.addEventListener('submit', (e) => {
+		const showError = (message: string) => {
+			errorEl.textContent = message;
+			show(errorEl);
+		};
+
+		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
 
-			// Step 1 -> 2
+			// Step 1 -> 2: acknowledge the idea, ask for the email.
 			if (!steps.idea.hasAttribute('hidden')) {
 				if (!ideaInput.value.trim()) {
 					ideaInput.reportValidity();
@@ -103,27 +114,40 @@ const jsonLd = {
 				return;
 			}
 
-			// Step 2 -> 3
+			// Step 2 -> 3: send the email via the server, then show the gift message.
 			if (!steps.email.hasAttribute('hidden')) {
 				if (!emailInput.checkValidity()) {
 					emailInput.reportValidity();
 					return;
 				}
-				// Persist locally so nothing is lost before a backend exists.
+
+				hide(errorEl);
+				emailButton.disabled = true;
+				const original = emailButton.textContent;
+				emailButton.textContent = 'Sending…';
+
 				try {
-					localStorage.setItem(
-						'igiveideas:submission',
-						JSON.stringify({
+					const res = await fetch('/api/submit', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
 							idea: ideaInput.value.trim(),
 							email: emailInput.value.trim(),
-							at: new Date().toISOString(),
 						}),
-					);
-				} catch {
-					/* storage may be unavailable; ignore */
+					});
+
+					if (!res.ok) {
+						const data = await res.json().catch(() => ({}));
+						throw new Error(data.error || 'Something went wrong. Please try again.');
+					}
+
+					hide(steps.email);
+					show(steps.done);
+				} catch (err) {
+					showError(err instanceof Error ? err.message : 'Something went wrong.');
+					emailButton.disabled = false;
+					emailButton.textContent = original;
 				}
-				hide(steps.email);
-				show(steps.done);
 			}
 		});
 	}
@@ -235,5 +259,28 @@ const jsonLd = {
 		font-size: 1.7rem;
 		color: var(--accent);
 		margin: 8px 0 0;
+	}
+
+	.wow {
+		font-family: 'Caveat', cursive;
+		font-size: 1.7rem;
+		color: var(--accent);
+		margin: 0 0 10px;
+	}
+
+	.error {
+		color: #a3341f;
+		font-size: 0.95rem;
+		margin: 10px 0 0;
+	}
+
+	button:disabled {
+		opacity: 0.55;
+		cursor: default;
+	}
+
+	button:disabled:hover {
+		background: transparent;
+		color: var(--ink);
 	}
 </style>
