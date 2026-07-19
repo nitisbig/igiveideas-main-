@@ -1,6 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
 
+// Rendered on demand so the admin-configured theme/font applies live.
+export const prerender = false;
+
 const jsonLd = {
 	'@context': 'https://schema.org',
 	'@type': 'WebSite',

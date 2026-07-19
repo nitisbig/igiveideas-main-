@@ -1,0 +1,111 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { sbFetch } from '../../lib/supabase';
+
+export const prerender = false;
+
+type Submission = { id: string; idea: string; email: string; created_at: string };
+
+let rows: Submission[] = [];
+let failed = false;
+try {
+	rows = await sbFetch<Submission[]>('idea_submissions', {
+		query: '?select=id,idea,email,created_at&order=created_at.desc',
+	});
+} catch (err) {
+	console.error('load submissions failed:', err);
+	failed = true;
+}
+
+const fmt = (iso: string) =>
+	new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+---
+
+<AdminLayout title="Emails" active="emails">
+	<h1>Submitted emails</h1>
+	<p class="lede">{rows.length} submission{rows.length === 1 ? '' : 's'}, newest first.</p>
+
+	{failed && <p class="error">Could not load submissions. Check the server logs.</p>}
+
+	{
+		!failed && rows.length === 0 && <p class="empty">No submissions yet.</p>
+	}
+
+	{
+		rows.length > 0 && (
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<th>Email</th>
+							<th>Idea</th>
+							<th>When</th>
+						</tr>
+					</thead>
+					<tbody>
+						{rows.map((r) => (
+							<tr>
+								<td><a href={`mailto:${r.email}`}>{r.email}</a></td>
+								<td>{r.idea}</td>
+								<td class="when">{fmt(r.created_at)}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		)
+	}
+</AdminLayout>
+
+<style>
+	h1 {
+		font-weight: 600;
+		margin: 0 0 6px;
+	}
+	.lede {
+		color: var(--ink-soft);
+		margin: 0 0 24px;
+	}
+	.table {
+		overflow-x: auto;
+		border: 2px solid var(--line);
+		border-radius: 12px;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.95rem;
+	}
+	th,
+	td {
+		text-align: left;
+		padding: 12px 16px;
+		border-bottom: 1px solid rgba(42, 38, 34, 0.15);
+		vertical-align: top;
+	}
+	thead th {
+		border-bottom: 2px solid var(--line);
+		font-size: 0.85rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--ink-soft);
+	}
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+	td a {
+		color: var(--accent);
+	}
+	.when {
+		white-space: nowrap;
+		color: var(--ink-soft);
+		font-size: 0.85rem;
+	}
+	.empty,
+	.error {
+		color: var(--ink-soft);
+	}
+	.error {
+		color: #a3341f;
+	}
+</style>

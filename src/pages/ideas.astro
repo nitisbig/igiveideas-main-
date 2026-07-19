@@ -1,12 +1,19 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sbFetch } from '../lib/supabase';
 
-const ideas = [
-	'How to make machine works for you',
-	'How to convert ideas into code',
-	"Let's fix the token",
-	'',
-];
+export const prerender = false;
+
+type Idea = { title: string; slug: string };
+
+let ideas: Idea[] = [];
+try {
+	ideas = await sbFetch<Idea[]>('ideas', {
+		query: '?select=title,slug&published=eq.true&order=sort_order.asc',
+	});
+} catch (err) {
+	console.error('load public ideas failed:', err);
+}
 ---
 
 <Layout
@@ -20,10 +27,11 @@ const ideas = [
 				ideas.map((idea) => (
 					<li>
 						<span class="hash">#</span>
-						{idea && <span class="text">{idea}</span>}
+						<a class="text" href={`/ideas/${idea.slug}`}>{idea.title}</a>
 					</li>
 				))
 			}
+			{ideas.length === 0 && <li class="empty">No ideas published yet.</li>}
 		</ul>
 	</section>
 </Layout>
@@ -58,5 +66,19 @@ const ideas = [
 
 	.text {
 		color: var(--ink);
+		text-decoration: none;
+		border-bottom: 2px solid transparent;
+		transition: border-color 0.2s ease, color 0.2s ease;
+	}
+
+	.text:hover {
+		color: var(--accent);
+		border-bottom-color: var(--accent);
+	}
+
+	.empty {
+		color: var(--ink-soft);
+		font-style: italic;
 	}
 </style>
+

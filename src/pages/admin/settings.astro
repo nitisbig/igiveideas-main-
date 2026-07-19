@@ -1,0 +1,159 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { readSettings } from '../../lib/auth';
+import { FONTS, THEMES } from '../../lib/theme';
+
+export const prerender = false;
+
+const settings = await readSettings();
+
+const themeKeys = Object.keys(THEMES) as (keyof typeof THEMES)[];
+const fontKeys = Object.keys(FONTS) as (keyof typeof FONTS)[];
+
+const currentTheme = settings?.theme ?? 'paper';
+const currentFont = settings?.font ?? 'garamond';
+
+const params = Astro.url.searchParams;
+const ok = params.get('ok');
+const error = params.get('error');
+const notice =
+	ok === 'appearance'
+		? 'Theme and font saved.'
+		: ok === 'account'
+			? 'Account updated.'
+			: '';
+const problem =
+	error === 'username'
+		? 'A username is required.'
+		: error === 'invalid'
+			? 'Pick a valid theme and font.'
+			: error === 'config'
+				? 'Storage is not configured.'
+				: error
+					? 'Something went wrong.'
+					: '';
+---
+
+<AdminLayout title="Settings" active="settings">
+	<h1>Settings</h1>
+
+	{notice && <p class="notice">{notice}</p>}
+	{problem && <p class="error">{problem}</p>}
+
+	<section class="block">
+		<h2>Appearance</h2>
+		<p class="hint">Applies to the whole public site.</p>
+		<form method="POST" action="/api/admin/settings" class="form">
+			<input type="hidden" name="_section" value="appearance" />
+
+			<label for="theme">Theme</label>
+			<select id="theme" name="theme">
+				{
+					themeKeys.map((key) => (
+						<option value={key} selected={key === currentTheme}>
+							{key}
+						</option>
+					))
+				}
+			</select>
+
+			<label for="font">Font</label>
+			<select id="font" name="font">
+				{
+					fontKeys.map((key) => (
+						<option value={key} selected={key === currentFont}>
+							{key}
+						</option>
+					))
+				}
+			</select>
+
+			<button type="submit">Save appearance</button>
+		</form>
+	</section>
+
+	<section class="block">
+		<h2>Account</h2>
+		<p class="hint">Change your login. Leave the password blank to keep it.</p>
+		<form method="POST" action="/api/admin/settings" class="form">
+			<input type="hidden" name="_section" value="account" />
+
+			<label for="username">Username</label>
+			<input id="username" name="username" type="text" required value={settings?.username ?? ''} />
+
+			<label for="password">New password</label>
+			<input id="password" name="password" type="password" autocomplete="new-password" placeholder="•••••••• (unchanged)" />
+
+			<button type="submit">Save account</button>
+		</form>
+	</section>
+</AdminLayout>
+
+<style>
+	h1 {
+		font-weight: 600;
+		margin: 0 0 18px;
+	}
+	h2 {
+		font-weight: 600;
+		font-size: 1.2rem;
+		margin: 0 0 4px;
+	}
+	.hint {
+		color: var(--ink-soft);
+		font-size: 0.9rem;
+		margin: 0 0 14px;
+	}
+	.block {
+		border: 2px solid var(--line);
+		border-radius: 14px;
+		padding: 22px;
+		margin-bottom: 24px;
+		max-width: 520px;
+	}
+	.form {
+		display: grid;
+		gap: 8px;
+	}
+	label {
+		font-size: 0.9rem;
+		color: var(--ink-soft);
+		margin-top: 6px;
+	}
+	input,
+	select {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 8px;
+		padding: 10px 12px;
+		font: inherit;
+		color: var(--ink);
+		width: 100%;
+	}
+	input:focus,
+	select:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+	button {
+		margin-top: 16px;
+		justify-self: start;
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 10px;
+		padding: 10px 22px;
+		font: inherit;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	button:hover {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.notice {
+		color: var(--accent);
+	}
+	.error {
+		color: #a3341f;
+	}
+</style>

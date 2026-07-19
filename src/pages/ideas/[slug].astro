@@ -1,0 +1,70 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sbFetch } from '../../lib/supabase';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+type Idea = { title: string; slug: string; body: string; published: boolean };
+
+let idea: Idea | null = null;
+try {
+	const rows = await sbFetch<Idea[]>('ideas', {
+		query: `?slug=eq.${encodeURIComponent(slug!)}&published=eq.true&select=title,slug,body,published&limit=1`,
+	});
+	idea = rows?.[0] ?? null;
+} catch (err) {
+	console.error('load idea article failed:', err);
+}
+
+if (!idea) {
+	return new Response('Not found', { status: 404 });
+}
+
+// Split the body into paragraphs on blank lines for readable rendering.
+const paragraphs = idea.body
+	.split(/\n\s*\n/)
+	.map((p) => p.trim())
+	.filter(Boolean);
+---
+
+<Layout title={`${idea.title} — igiveideas`} description={paragraphs[0] ?? idea.title} path={`/ideas/${idea.slug}`}>
+	<article class="article">
+		<p class="back"><a href="/ideas">← All ideas</a></p>
+		<h1>{idea.title}</h1>
+		<div class="body">
+			{paragraphs.map((p) => <p>{p}</p>)}
+		</div>
+	</article>
+</Layout>
+
+<style>
+	.article {
+		flex: 1;
+		width: 100%;
+		max-width: 65ch;
+		margin: 0 auto;
+		padding-top: clamp(24px, 5vw, 56px);
+	}
+	.back {
+		margin: 0 0 12px;
+	}
+	.back a {
+		color: var(--accent);
+		text-decoration: none;
+		font-size: 0.95rem;
+	}
+	.back a:hover {
+		text-decoration: underline;
+	}
+	h1 {
+		font-weight: 500;
+		font-size: clamp(1.5rem, 4vw, 2.2rem);
+		margin: 0 0 24px;
+	}
+	.body p {
+		font-size: clamp(1.05rem, 2.4vw, 1.2rem);
+		margin: 0 0 20px;
+	}
+</style>

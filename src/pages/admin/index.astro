@@ -1,0 +1,77 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+import { sbFetch } from '../../lib/supabase';
+
+export const prerender = false;
+
+const username = await requireAdmin(Astro.cookies);
+
+// Tables are tiny — just fetch ids and count them.
+async function total(table: string): Promise<number | null> {
+	try {
+		const rows = await sbFetch<{ id: string }[]>(table, { query: '?select=id' });
+		return rows?.length ?? 0;
+	} catch {
+		return null;
+	}
+}
+
+const [emails, ideas] = await Promise.all([total('idea_submissions'), total('ideas')]);
+---
+
+<AdminLayout title="Dashboard" active="home">
+	<h1>Welcome, {username}</h1>
+	<p class="lede">Manage what visitors see on igiveideas.</p>
+
+	<div class="cards">
+		<a class="card" href="/admin/emails">
+			<span class="num">{emails ?? '—'}</span>
+			<span class="label">Submitted emails</span>
+		</a>
+		<a class="card" href="/admin/ideas">
+			<span class="num">{ideas ?? '—'}</span>
+			<span class="label">Ideas</span>
+		</a>
+		<a class="card" href="/admin/settings">
+			<span class="num">⚙</span>
+			<span class="label">Theme & account</span>
+		</a>
+	</div>
+</AdminLayout>
+
+<style>
+	h1 {
+		font-weight: 600;
+		margin: 0 0 6px;
+	}
+	.lede {
+		color: var(--ink-soft);
+		margin: 0 0 28px;
+	}
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 18px;
+	}
+	.card {
+		border: 2px solid var(--line);
+		border-radius: 14px;
+		padding: 22px;
+		text-decoration: none;
+		color: var(--ink);
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.card:hover {
+		background: rgba(138, 90, 43, 0.06);
+	}
+	.num {
+		font-size: 2rem;
+		font-weight: 600;
+	}
+	.label {
+		color: var(--ink-soft);
+	}
+</style>

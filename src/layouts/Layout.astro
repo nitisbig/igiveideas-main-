@@ -1,4 +1,7 @@
 ---
+import { readSettings } from '../lib/auth';
+import { resolveTheme } from '../lib/theme';
+
 const {
 	title = 'igiveideas — add taste to AI output',
 	description = 'Branding needs taste, psychology and human connection. Learn how to run business like Leonardo da Vinci and add taste to your AI output.',
@@ -8,6 +11,11 @@ const {
 const site = 'https://igiveideas.com';
 const canonical = new URL(path, site).href;
 const ogImage = new URL('/leonardo.svg', site).href;
+
+// Theme/font are admin-configurable. Falls back to the default paper/garamond
+// preset when settings can't be read, so public pages never break.
+const settings = await readSettings();
+const { css: themeCss, fontHref, fontFamily } = resolveTheme(settings?.theme, settings?.font);
 
 const nav = [
 	{ label: 'Home', href: '/' },
@@ -49,10 +57,10 @@ const current = path.replace(/\/+$/, '') || '/';
 
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
-			rel="stylesheet"
-		/>
+		{fontHref && <link href={fontHref} rel="stylesheet" />}
+
+		<!-- Admin-configurable theme + font, injected into :root. -->
+		<style set:html={`:root{${themeCss}}body{font-family:${fontFamily};}`} />
 
 		<slot name="head" />
 	</head>
@@ -88,14 +96,8 @@ const current = path.replace(/\/+$/, '') || '/';
 </html>
 
 <style>
-	:global(:root) {
-		--paper: #fbfbe8;
-		--ink: #2a2622;
-		--ink-soft: #4d4740;
-		--accent: #8a5a2b;
-		--line: #2a2622;
-	}
-
+	/* Palette + body font are injected per-request from admin settings
+	   (see the inline <style> in <head>). Defaults live in src/lib/theme.ts. */
 	:global(*) {
 		box-sizing: border-box;
 	}
@@ -109,7 +111,7 @@ const current = path.replace(/\/+$/, '') || '/';
 	:global(body) {
 		background: var(--paper);
 		color: var(--ink);
-		font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+		font-family: var(--font-body, 'EB Garamond', Georgia, 'Times New Roman', serif);
 		font-size: 19px;
 		line-height: 1.6;
 		min-height: 100vh;

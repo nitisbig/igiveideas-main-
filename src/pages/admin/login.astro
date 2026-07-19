@@ -1,0 +1,86 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+export const prerender = false;
+
+// If already logged in, skip the form.
+import { requireAdmin } from '../../lib/auth';
+if (await requireAdmin(Astro.cookies)) {
+	return Astro.redirect('/admin');
+}
+
+const error = Astro.url.searchParams.get('error');
+const message =
+	error === 'config'
+		? 'Admin storage is not configured. Set the Supabase service role key.'
+		: error
+			? 'Incorrect username or password.'
+			: '';
+---
+
+<AdminLayout title="Log in" showNav={false}>
+	<section class="login">
+		<h1>Log in</h1>
+		{message && <p class="error" role="alert">{message}</p>}
+		<form method="POST" action="/api/admin/login">
+			<label for="username">Username</label>
+			<input id="username" name="username" type="text" autocomplete="username" required />
+
+			<label for="password">Password</label>
+			<input id="password" name="password" type="password" autocomplete="current-password" required />
+
+			<button type="submit">Enter</button>
+		</form>
+	</section>
+</AdminLayout>
+
+<style>
+	.login {
+		max-width: 360px;
+		margin: 6vh auto 0;
+	}
+	h1 {
+		font-weight: 600;
+		margin: 0 0 20px;
+	}
+	form {
+		display: grid;
+		gap: 8px;
+	}
+	label {
+		font-size: 0.9rem;
+		color: var(--ink-soft);
+		margin-top: 8px;
+	}
+	input {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 8px;
+		padding: 10px 12px;
+		font: inherit;
+		color: var(--ink);
+	}
+	input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+	button {
+		margin-top: 16px;
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 10px;
+		padding: 10px;
+		font: inherit;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	button:hover {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.error {
+		color: #a3341f;
+		font-size: 0.95rem;
+		margin: 0 0 12px;
+	}
+</style>
