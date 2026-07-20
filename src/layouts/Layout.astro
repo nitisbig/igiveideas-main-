@@ -72,6 +72,7 @@ const current = path.replace(/\/+$/, '') || '/';
 
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		{fontHref && <link rel="preload" as="style" href={fontHref} />}
 		{fontHref && <link href={fontHref} rel="stylesheet" />}
 
 		<!-- Admin-configurable theme + font, injected into :root. -->
