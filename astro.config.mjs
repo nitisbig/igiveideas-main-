@@ -46,5 +46,6 @@ async function resolveAdapter() {
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://igiveideas.com',
 	adapter: await resolveAdapter(),
 });

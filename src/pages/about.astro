@@ -16,6 +16,16 @@ const links = [
 		handle: '@nitisbig',
 	},
 ];
+
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'Person',
+	name: 'nitesh',
+	url: 'https://igiveideas.com/about',
+	description:
+		'I write ideas, build in the open, and add taste to AI output — branding grounded in psychology and human connection.',
+	sameAs: links.map((l) => l.href),
+};
 ---
 
 <Layout
@@ -23,6 +33,7 @@ const links = [
 	description="Hi, I am nitesh. I have a dream to solve the great, the skill to see the soul, and the attitude to win. Connect with me on LinkedIn and GitHub."
 	path="/about"
 >
+	<script type="application/ld+json" slot="head" set:html={JSON.stringify(jsonLd)} />
 	<section class="page">
 		<img
 			class="portrait"

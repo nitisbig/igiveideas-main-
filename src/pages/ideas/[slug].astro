@@ -6,12 +6,18 @@ export const prerender = false;
 
 const { slug } = Astro.params;
 
-type Idea = { title: string; slug: string; body: string; published: boolean };
+type Idea = {
+	title: string;
+	slug: string;
+	body: string;
+	published: boolean;
+	updated_at: string | null;
+};
 
 let idea: Idea | null = null;
 try {
 	const rows = await sbFetch<Idea[]>('ideas', {
-		query: `?slug=eq.${encodeURIComponent(slug!)}&published=eq.true&select=title,slug,body,published&limit=1`,
+		query: `?slug=eq.${encodeURIComponent(slug!)}&published=eq.true&select=title,slug,body,published,updated_at&limit=1`,
 	});
 	idea = rows?.[0] ?? null;
 } catch (err) {
@@ -27,9 +33,34 @@ const paragraphs = idea.body
 	.split(/\n\s*\n/)
 	.map((p) => p.trim())
 	.filter(Boolean);
+
+/** Trim to ~155 chars on a word boundary for a clean meta description. */
+function metaExcerpt(text: string, max = 155): string {
+	const clean = text.replace(/\s+/g, ' ').trim();
+	if (clean.length <= max) return clean;
+	const cut = clean.slice(0, max);
+	const lastSpace = cut.lastIndexOf(' ');
+	return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()}…`;
+}
+
+const description = metaExcerpt(paragraphs[0] ?? idea.title);
+const url = `https://igiveideas.com/ideas/${idea.slug}`;
+
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'BlogPosting',
+	headline: idea.title,
+	description,
+	url,
+	mainEntityOfPage: url,
+	author: { '@type': 'Person', name: 'nitesh', url: 'https://igiveideas.com/about' },
+	publisher: { '@type': 'Organization', name: 'igiveideas', url: 'https://igiveideas.com' },
+	...(idea.updated_at ? { dateModified: new Date(idea.updated_at).toISOString() } : {}),
+};
 ---
 
-<Layout title={`${idea.title} — igiveideas`} description={paragraphs[0] ?? idea.title} path={`/ideas/${idea.slug}`}>
+<Layout title={`${idea.title} — igiveideas`} description={description} path={`/ideas/${idea.slug}`}>
+	<script type="application/ld+json" slot="head" set:html={JSON.stringify(jsonLd)} />
 	<article class="article">
 		<p class="back"><a href="/ideas">← All ideas</a></p>
 		<h1>{idea.title}</h1>
