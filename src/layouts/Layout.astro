@@ -6,6 +6,7 @@ const {
 	title = 'igiveideas — add taste to AI output',
 	description = 'Branding needs taste, psychology and human connection. Learn how to run business like Leonardo da Vinci and add taste to your AI output.',
 	path = '/',
+	ogType = 'website',
 } = Astro.props;
 
 const site = 'https://igiveideas.com';
@@ -53,7 +54,7 @@ const current = path.replace(/\/+$/, '') || '/';
 		<link rel="canonical" href={canonical} />
 
 		<!-- Open Graph -->
-		<meta property="og:type" content="website" />
+		<meta property="og:type" content={ogType} />
 		<meta property="og:site_name" content="igiveideas" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />

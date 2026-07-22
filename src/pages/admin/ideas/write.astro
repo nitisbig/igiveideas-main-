@@ -1,0 +1,898 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { sbFetch } from '../../../lib/supabase';
+import { parseArticle, serializeArticle, type Block } from '../../../lib/article';
+
+export const prerender = false;
+
+/**
+ * Full-page article writer. Handles both "new" (`/admin/ideas/write`) and
+ * "edit" (`/admin/ideas/write?id=<uuid>`). The heavy lifting is client-side
+ * (block editing, drag-reorder, live preview), but the block model, Markdown
+ * renderer, and article HTML all come from `src/lib` — the same modules the
+ * public SSR page uses — so the preview is byte-for-byte what visitors get.
+ */
+
+const id = Astro.url.searchParams.get('id');
+
+type Idea = {
+	id: string;
+	title: string;
+	slug: string;
+	body: string;
+	published: boolean;
+	sort_order: number;
+};
+
+let idea: Idea | null = null;
+if (id) {
+	try {
+		const rows = await sbFetch<Idea[]>('ideas', {
+			query: `?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
+		});
+		idea = rows?.[0] ?? null;
+	} catch (err) {
+		console.error('load idea for writer failed:', err);
+	}
+	if (!idea) return Astro.redirect('/admin/ideas?error=notfound');
+}
+
+const isEdit = Boolean(idea);
+const initialBlocks: Block[] = idea
+	? parseArticle(idea.body)
+	: [{ type: 'text', markdown: '' }];
+
+// Handed to the client as JSON to seed the editor state.
+const initialState = {
+	action: isEdit ? 'update' : 'create',
+	id: idea?.id ?? '',
+	title: idea?.title ?? '',
+	published: idea ? idea.published : true,
+	sortOrder: idea?.sort_order ?? 0,
+	blocks: initialBlocks,
+};
+
+// A canonical empty doc so the "reset" path and SSR fallback agree.
+const emptyBody = serializeArticle([{ type: 'text', markdown: '' }]);
+---
+
+<AdminLayout title={isEdit ? 'Edit article' : 'Write article'} active="ideas">
+	<p class="back"><a href="/admin/ideas">← Back to ideas</a></p>
+	<h1>{isEdit ? 'Edit article' : 'Write article'}</h1>
+
+	<form id="writer" method="POST" action="/api/admin/ideas">
+		<input type="hidden" name="_action" value={initialState.action} />
+		{isEdit && <input type="hidden" name="id" value={initialState.id} />}
+		<!-- Serialized ArticleDoc JSON, filled in on submit. -->
+		<input type="hidden" name="body" id="body-field" value={emptyBody} />
+
+		<div class="meta">
+			<div class="field grow">
+				<label for="title">Title</label>
+				<input id="title" name="title" type="text" required value={initialState.title} />
+				<p class="slug">Public URL: <code id="slug-preview">/ideas/…</code></p>
+			</div>
+			<div class="field">
+				<label for="sort_order">Order</label>
+				<input id="sort_order" name="sort_order" type="number" value={initialState.sortOrder} />
+			</div>
+			<label class="check">
+				<input type="checkbox" name="published" checked={initialState.published} />
+				Published
+			</label>
+		</div>
+
+		<div class="toolbar">
+			<div class="add">
+				<button type="button" class="ghost" data-add="text">+ Text</button>
+				<button type="button" class="ghost" data-add="image">+ Image</button>
+			</div>
+			<button type="button" class="ghost" id="toggle-preview" aria-pressed="false">
+				Preview
+			</button>
+		</div>
+
+		<div class="editor-grid" data-preview="off">
+			<div id="blocks" class="blocks" aria-label="Article blocks"></div>
+			<aside id="preview-pane" class="preview-pane" hidden>
+				<div class="preview-head">Live preview</div>
+				<article id="preview" class="preview article-body"></article>
+			</aside>
+		</div>
+
+		<div class="actions">
+			<button type="submit" id="save">{isEdit ? 'Save changes' : 'Publish article'}</button>
+			<span id="hint" class="hint"></span>
+		</div>
+	</form>
+
+	<template id="tpl-text">
+		<article class="block" draggable="false" data-type="text">
+			<header class="block-head">
+				<button type="button" class="handle" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
+				<span class="tag">Text</span>
+				<div class="spacer"></div>
+				<div class="aligns" role="group" aria-label="Text alignment">
+					<button type="button" data-align="left" title="Align left" aria-label="Align left">⬅</button>
+					<button type="button" data-align="center" title="Align center" aria-label="Align center">⬌</button>
+					<button type="button" data-align="right" title="Align right" aria-label="Align right">➡</button>
+				</div>
+				<button type="button" class="up" title="Move up" aria-label="Move up">↑</button>
+				<button type="button" class="down" title="Move down" aria-label="Move down">↓</button>
+				<button type="button" class="del" title="Delete block" aria-label="Delete block">✕</button>
+			</header>
+			<textarea class="md" rows="6" placeholder="Write in Markdown — # heading, **bold**, *italic*, - lists, > quote, [link](url), `code`."></textarea>
+		</article>
+	</template>
+
+	<template id="tpl-image">
+		<article class="block" draggable="false" data-type="image">
+			<header class="block-head">
+				<button type="button" class="handle" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
+				<span class="tag">Image</span>
+				<div class="spacer"></div>
+				<div class="aligns" role="group" aria-label="Image alignment">
+					<button type="button" data-align="left" title="Align left" aria-label="Align left">⬅</button>
+					<button type="button" data-align="center" title="Align center" aria-label="Align center">⬌</button>
+					<button type="button" data-align="right" title="Align right" aria-label="Align right">➡</button>
+				</div>
+				<button type="button" class="up" title="Move up" aria-label="Move up">↑</button>
+				<button type="button" class="down" title="Move down" aria-label="Move down">↓</button>
+				<button type="button" class="del" title="Delete block" aria-label="Delete block">✕</button>
+			</header>
+			<div class="img-fields">
+				<label>Image link (URL)
+					<input class="src" type="url" placeholder="https://example.com/photo.jpg" />
+				</label>
+				<div class="img-preview" data-state="empty">
+					<span class="ph">Paste an image URL above to preview it here.</span>
+					<img alt="" hidden />
+				</div>
+				<label>Alt text <span class="req">· for SEO &amp; accessibility</span>
+					<input class="alt" type="text" placeholder="Describe the image for search engines and screen readers" />
+				</label>
+				<label>Caption <span class="opt">· optional, shown under the image</span>
+					<input class="caption" type="text" placeholder="Optional visible caption" />
+				</label>
+			</div>
+		</article>
+	</template>
+
+	<script
+		id="initial-state"
+		type="application/json"
+		set:html={JSON.stringify(initialState)}
+	/>
+</AdminLayout>
+
+<script>
+	import {
+		serializeArticle,
+		renderArticleHtml,
+		isSafeImageSrc,
+		type Block,
+		type Align,
+	} from '../../../lib/article';
+
+	type EditBlock =
+		| { uid: number; type: 'text'; markdown: string; align: Align }
+		| {
+				uid: number;
+				type: 'image';
+				src: string;
+				alt: string;
+				caption: string;
+				align: Align;
+				width?: number;
+				height?: number;
+		  };
+
+	const form = document.getElementById('writer') as HTMLFormElement;
+	const blocksEl = document.getElementById('blocks') as HTMLDivElement;
+	const bodyField = document.getElementById('body-field') as HTMLInputElement;
+	const titleInput = document.getElementById('title') as HTMLInputElement;
+	const slugPreview = document.getElementById('slug-preview') as HTMLElement;
+	const previewPane = document.getElementById('preview-pane') as HTMLElement;
+	const previewEl = document.getElementById('preview') as HTMLElement;
+	const editorGrid = document.querySelector('.editor-grid') as HTMLElement;
+	const togglePreviewBtn = document.getElementById('toggle-preview') as HTMLButtonElement;
+	const hint = document.getElementById('hint') as HTMLElement;
+
+	const tplText = document.getElementById('tpl-text') as HTMLTemplateElement;
+	const tplImage = document.getElementById('tpl-image') as HTMLTemplateElement;
+
+	const raw = document.getElementById('initial-state') as HTMLScriptElement;
+	const initial = JSON.parse(raw.textContent || '{}') as {
+		blocks: Block[];
+	};
+
+	let uidSeq = 1;
+	const nextUid = () => uidSeq++;
+
+	/** Mirror the server slugify so the preview matches the eventual URL. */
+	function slugify(input: string): string {
+		return input
+			.toLowerCase()
+			.trim()
+			.replace(/[^a-z0-9\s-]/g, '')
+			.replace(/\s+/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^-|-$/g, '')
+			.slice(0, 80);
+	}
+
+	function updateSlug() {
+		const s = slugify(titleInput.value);
+		slugPreview.textContent = `/ideas/${s || '…'}`;
+	}
+
+	// Seed editor state from the server-provided document.
+	let state: EditBlock[] = (initial.blocks || []).map((b) => {
+		if (b.type === 'image') {
+			return {
+				uid: nextUid(),
+				type: 'image',
+				src: b.src || '',
+				alt: b.alt || '',
+				caption: b.caption || '',
+				align: b.align || 'left',
+				width: b.width,
+				height: b.height,
+			};
+		}
+		return {
+			uid: nextUid(),
+			type: 'text',
+			markdown: b.markdown || '',
+			align: b.align || 'left',
+		};
+	});
+	if (state.length === 0) {
+		state = [{ uid: nextUid(), type: 'text', markdown: '', align: 'left' }];
+	}
+
+	/** Convert editor state to the storage block model. */
+	function toBlocks(): Block[] {
+		return state.map((b) => {
+			if (b.type === 'image') {
+				const img: Block = {
+					type: 'image',
+					src: b.src.trim(),
+					alt: b.alt.trim(),
+					align: b.align,
+				};
+				if (b.caption.trim()) img.caption = b.caption.trim();
+				if (b.width && b.height) {
+					img.width = b.width;
+					img.height = b.height;
+				}
+				return img;
+			}
+			const text: Block = { type: 'text', markdown: b.markdown };
+			if (b.align !== 'left') text.align = b.align;
+			return text;
+		});
+	}
+
+	function refreshPreview() {
+		previewEl.innerHTML = renderArticleHtml(toBlocks());
+	}
+
+	function markAlign(header: HTMLElement, align: Align) {
+		header.querySelectorAll('.aligns button').forEach((btn) => {
+			const b = btn as HTMLButtonElement;
+			b.setAttribute('aria-pressed', b.dataset.align === align ? 'true' : 'false');
+		});
+	}
+
+	/** Full re-render of the block list (used on structural changes only). */
+	function render() {
+		blocksEl.innerHTML = '';
+		state.forEach((block, index) => {
+			const node = (
+				block.type === 'text' ? tplText : tplImage
+			).content.firstElementChild!.cloneNode(true) as HTMLElement;
+			node.dataset.uid = String(block.uid);
+
+			const header = node.querySelector('.block-head') as HTMLElement;
+			markAlign(header, block.align);
+
+			// Reorder / delete controls.
+			(node.querySelector('.up') as HTMLButtonElement).disabled = index === 0;
+			(node.querySelector('.down') as HTMLButtonElement).disabled =
+				index === state.length - 1;
+
+			node.querySelector('.up')!.addEventListener('click', () => move(block.uid, -1));
+			node.querySelector('.down')!.addEventListener('click', () => move(block.uid, 1));
+			node.querySelector('.del')!.addEventListener('click', () => remove(block.uid));
+
+			node.querySelectorAll('.aligns button').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const align = (btn as HTMLButtonElement).dataset.align as Align;
+					const target = state.find((s) => s.uid === block.uid);
+					if (target) target.align = align;
+					markAlign(header, align);
+					refreshPreview();
+				});
+			});
+
+			if (block.type === 'text') {
+				const ta = node.querySelector('.md') as HTMLTextAreaElement;
+				ta.value = block.markdown;
+				ta.addEventListener('input', () => {
+					const target = state.find((s) => s.uid === block.uid);
+					if (target && target.type === 'text') target.markdown = ta.value;
+					refreshPreview();
+				});
+				autoGrow(ta);
+			} else {
+				wireImage(node, block.uid);
+			}
+
+			wireDrag(node, block.uid);
+			blocksEl.appendChild(node);
+		});
+		refreshPreview();
+	}
+
+	function autoGrow(ta: HTMLTextAreaElement) {
+		const grow = () => {
+			ta.style.height = 'auto';
+			ta.style.height = `${ta.scrollHeight}px`;
+		};
+		ta.addEventListener('input', grow);
+		requestAnimationFrame(grow);
+	}
+
+	function wireImage(node: HTMLElement, uid: number) {
+		const srcInput = node.querySelector('.src') as HTMLInputElement;
+		const altInput = node.querySelector('.alt') as HTMLInputElement;
+		const captionInput = node.querySelector('.caption') as HTMLInputElement;
+		const preview = node.querySelector('.img-preview') as HTMLElement;
+		const img = preview.querySelector('img') as HTMLImageElement;
+
+		const block = state.find((s) => s.uid === uid);
+		if (!block || block.type !== 'image') return;
+
+		srcInput.value = block.src;
+		altInput.value = block.alt;
+		captionInput.value = block.caption;
+
+		function loadPreview(url: string) {
+			const target = state.find((s) => s.uid === uid);
+			if (!target || target.type !== 'image') return;
+			target.src = url;
+			target.width = undefined;
+			target.height = undefined;
+			if (!url.trim()) {
+				preview.dataset.state = 'empty';
+				img.hidden = true;
+				refreshPreview();
+				return;
+			}
+			if (!isSafeImageSrc(url)) {
+				preview.dataset.state = 'error';
+				img.hidden = true;
+				refreshPreview();
+				return;
+			}
+			preview.dataset.state = 'loading';
+			img.hidden = true;
+			img.src = url;
+		}
+
+		img.addEventListener('load', () => {
+			const target = state.find((s) => s.uid === uid);
+			if (target && target.type === 'image') {
+				// Capture intrinsic size so the published <img> reserves space (no CLS).
+				target.width = img.naturalWidth || undefined;
+				target.height = img.naturalHeight || undefined;
+			}
+			preview.dataset.state = 'ok';
+			img.hidden = false;
+			img.alt = altInput.value;
+			refreshPreview();
+		});
+		img.addEventListener('error', () => {
+			preview.dataset.state = 'error';
+			img.hidden = true;
+			refreshPreview();
+		});
+
+		// Auto-fetch on input (debounced) and immediately on paste/blur.
+		let t: number | undefined;
+		srcInput.addEventListener('input', () => {
+			window.clearTimeout(t);
+			t = window.setTimeout(() => loadPreview(srcInput.value.trim()), 500);
+		});
+		srcInput.addEventListener('change', () => loadPreview(srcInput.value.trim()));
+
+		altInput.addEventListener('input', () => {
+			const target = state.find((s) => s.uid === uid);
+			if (target && target.type === 'image') target.alt = altInput.value;
+			img.alt = altInput.value;
+			refreshPreview();
+		});
+		captionInput.addEventListener('input', () => {
+			const target = state.find((s) => s.uid === uid);
+			if (target && target.type === 'image') target.caption = captionInput.value;
+			refreshPreview();
+		});
+
+		if (block.src) loadPreview(block.src);
+	}
+
+	// --- Drag-to-reorder (HTML5 DnD via the handle) -------------------------
+	let dragUid: number | null = null;
+
+	function wireDrag(node: HTMLElement, uid: number) {
+		const handle = node.querySelector('.handle') as HTMLElement;
+		handle.addEventListener('mousedown', () => node.setAttribute('draggable', 'true'));
+		handle.addEventListener('touchstart', () => node.setAttribute('draggable', 'true'), {
+			passive: true,
+		});
+
+		node.addEventListener('dragstart', (e) => {
+			dragUid = uid;
+			node.classList.add('dragging');
+			e.dataTransfer?.setData('text/plain', String(uid));
+			if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+		});
+		node.addEventListener('dragend', () => {
+			dragUid = null;
+			node.classList.remove('dragging');
+			node.setAttribute('draggable', 'false');
+			blocksEl.querySelectorAll('.drop-above, .drop-below').forEach((n) =>
+				n.classList.remove('drop-above', 'drop-below'),
+			);
+		});
+		node.addEventListener('dragover', (e) => {
+			e.preventDefault();
+			if (dragUid === null || dragUid === uid) return;
+			const rect = node.getBoundingClientRect();
+			const after = e.clientY > rect.top + rect.height / 2;
+			node.classList.toggle('drop-below', after);
+			node.classList.toggle('drop-above', !after);
+		});
+		node.addEventListener('dragleave', () => {
+			node.classList.remove('drop-above', 'drop-below');
+		});
+		node.addEventListener('drop', (e) => {
+			e.preventDefault();
+			if (dragUid === null || dragUid === uid) return;
+			const rect = node.getBoundingClientRect();
+			const after = e.clientY > rect.top + rect.height / 2;
+			reorder(dragUid, uid, after);
+		});
+	}
+
+	function reorder(fromUid: number, toUid: number, after: boolean) {
+		const from = state.findIndex((b) => b.uid === fromUid);
+		let to = state.findIndex((b) => b.uid === toUid);
+		if (from < 0 || to < 0) return;
+		const [moved] = state.splice(from, 1);
+		to = state.findIndex((b) => b.uid === toUid);
+		state.splice(after ? to + 1 : to, 0, moved);
+		render();
+	}
+
+	function move(uid: number, dir: -1 | 1) {
+		const i = state.findIndex((b) => b.uid === uid);
+		const j = i + dir;
+		if (i < 0 || j < 0 || j >= state.length) return;
+		[state[i], state[j]] = [state[j], state[i]];
+		render();
+	}
+
+	function remove(uid: number) {
+		if (state.length === 1) {
+			// Keep at least one block; just clear it.
+			const only = state[0];
+			if (only.type === 'text') only.markdown = '';
+			render();
+			return;
+		}
+		state = state.filter((b) => b.uid !== uid);
+		render();
+	}
+
+	function add(type: 'text' | 'image') {
+		state.push(
+			type === 'image'
+				? { uid: nextUid(), type: 'image', src: '', alt: '', caption: '', align: 'left' }
+				: { uid: nextUid(), type: 'text', markdown: '', align: 'left' },
+		);
+		render();
+		// Focus the newly added block's first input.
+		const last = blocksEl.lastElementChild as HTMLElement | null;
+		(last?.querySelector('textarea, input') as HTMLElement | null)?.focus();
+	}
+
+	document.querySelectorAll('[data-add]').forEach((btn) => {
+		btn.addEventListener('click', () =>
+			add((btn as HTMLElement).dataset.add as 'text' | 'image'),
+		);
+	});
+
+	togglePreviewBtn.addEventListener('click', () => {
+		const on = editorGrid.dataset.preview === 'on';
+		editorGrid.dataset.preview = on ? 'off' : 'on';
+		previewPane.hidden = on;
+		togglePreviewBtn.setAttribute('aria-pressed', on ? 'false' : 'true');
+		if (!on) refreshPreview();
+	});
+
+	titleInput.addEventListener('input', updateSlug);
+
+	// Serialize the document into the hidden field right before the POST.
+	form.addEventListener('submit', (e) => {
+		const blocks = toBlocks();
+		// Warn (once) about images missing alt text — SEO/accessibility.
+		const missingAlt = blocks.some((b) => b.type === 'image' && b.src && !b.alt);
+		if (missingAlt && !form.dataset.altConfirmed) {
+			e.preventDefault();
+			form.dataset.altConfirmed = '1';
+			hint.textContent =
+				'Some images have no alt text (bad for SEO). Add it, or press Publish again to save anyway.';
+			hint.classList.add('warn');
+			return;
+		}
+		bodyField.value = serializeArticle(blocks);
+	});
+
+	updateSlug();
+	render();
+</script>
+
+<style>
+	.back {
+		margin: 0 0 8px;
+	}
+	.back a {
+		color: var(--accent);
+		text-decoration: none;
+		font-size: 0.9rem;
+	}
+	h1 {
+		font-weight: 600;
+		margin: 0 0 18px;
+	}
+
+	.meta {
+		display: flex;
+		align-items: flex-end;
+		gap: 20px;
+		flex-wrap: wrap;
+		margin-bottom: 20px;
+	}
+	.field {
+		display: grid;
+		gap: 6px;
+	}
+	.field.grow {
+		flex: 1 1 320px;
+		min-width: 260px;
+	}
+	label {
+		font-size: 0.85rem;
+		color: var(--ink-soft);
+	}
+	input[type='text'],
+	input[type='url'],
+	input[type='number'],
+	textarea {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 8px;
+		padding: 9px 12px;
+		font: inherit;
+		color: var(--ink);
+		width: 100%;
+	}
+	input:focus,
+	textarea:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+	.meta input[type='number'] {
+		width: 90px;
+	}
+	.slug {
+		font-size: 0.8rem;
+		color: var(--ink-soft);
+		margin: 2px 0 0;
+	}
+	.slug code {
+		color: var(--ink);
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--ink);
+	}
+	.check input {
+		width: auto;
+	}
+
+	.toolbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+		border-top: 2px solid var(--line);
+		border-bottom: 2px solid var(--line);
+		padding: 10px 0;
+		margin-bottom: 18px;
+		flex-wrap: wrap;
+	}
+	.add {
+		display: flex;
+		gap: 8px;
+	}
+	.ghost {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 8px;
+		padding: 6px 14px;
+		font: inherit;
+		font-size: 0.85rem;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	.ghost:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.ghost[aria-pressed='true'] {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
+	}
+
+	.editor-grid {
+		display: grid;
+		gap: 24px;
+	}
+	.editor-grid[data-preview='on'] {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	@media (max-width: 780px) {
+		.editor-grid[data-preview='on'] {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.blocks {
+		display: grid;
+		gap: 14px;
+		align-content: start;
+	}
+	.block {
+		border: 2px solid var(--line);
+		border-radius: 12px;
+		padding: 12px 14px 14px;
+		background: transparent;
+	}
+	.block.dragging {
+		opacity: 0.5;
+	}
+	.block.drop-above {
+		box-shadow: 0 -3px 0 0 var(--accent);
+	}
+	.block.drop-below {
+		box-shadow: 0 3px 0 0 var(--accent);
+	}
+	.block-head {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 10px;
+	}
+	.tag {
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--ink-soft);
+	}
+	.spacer {
+		flex: 1;
+	}
+	.block-head button {
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 6px;
+		width: 28px;
+		height: 28px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font: inherit;
+		font-size: 0.85rem;
+		color: var(--ink-soft);
+		cursor: pointer;
+		padding: 0;
+	}
+	.block-head button:hover:not(:disabled) {
+		border-color: var(--line);
+		color: var(--ink);
+	}
+	.block-head button:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+	.handle {
+		cursor: grab;
+	}
+	.handle:active {
+		cursor: grabbing;
+	}
+	.aligns {
+		display: inline-flex;
+		gap: 2px;
+		margin-right: 4px;
+	}
+	.aligns button[aria-pressed='true'] {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
+	}
+	.del:hover {
+		color: #a3341f !important;
+		border-color: #a3341f !important;
+	}
+	textarea.md {
+		resize: vertical;
+		min-height: 90px;
+		line-height: 1.5;
+	}
+
+	.img-fields {
+		display: grid;
+		gap: 10px;
+	}
+	.img-fields label {
+		display: grid;
+		gap: 4px;
+	}
+	.req {
+		color: var(--accent);
+		font-size: 0.75rem;
+	}
+	.opt {
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
+	.img-preview {
+		border: 1px dashed var(--line);
+		border-radius: 8px;
+		padding: 10px;
+		min-height: 60px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+	}
+	.img-preview .ph {
+		color: var(--ink-soft);
+		font-size: 0.85rem;
+	}
+	.img-preview img {
+		max-width: 100%;
+		max-height: 320px;
+		height: auto;
+		border-radius: 6px;
+	}
+	.img-preview[data-state='ok'] .ph {
+		display: none;
+	}
+	.img-preview[data-state='loading'] .ph::after {
+		content: ' loading…';
+	}
+	.img-preview[data-state='error'] .ph {
+		color: #a3341f;
+	}
+	.img-preview[data-state='error'] .ph::after {
+		content: ' — could not load this URL.';
+	}
+
+	.preview-pane {
+		border: 2px solid var(--line);
+		border-radius: 12px;
+		padding: 16px 20px;
+		align-self: start;
+		position: sticky;
+		top: 16px;
+		max-height: calc(100vh - 40px);
+		overflow: auto;
+	}
+	.preview-head {
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--ink-soft);
+		margin-bottom: 10px;
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		margin-top: 24px;
+		flex-wrap: wrap;
+	}
+	#save {
+		background: transparent;
+		border: 2px solid var(--line);
+		border-radius: 10px;
+		padding: 10px 22px;
+		font: inherit;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	#save:hover {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.hint {
+		font-size: 0.85rem;
+		color: var(--ink-soft);
+	}
+	.hint.warn {
+		color: #a3341f;
+	}
+
+	/* Preview matches the public article typography closely enough to trust. */
+	.article-body :global(h1),
+	.article-body :global(h2),
+	.article-body :global(h3) {
+		font-weight: 600;
+		line-height: 1.25;
+		margin: 1.2em 0 0.5em;
+	}
+	.article-body :global(p) {
+		margin: 0 0 1em;
+		line-height: 1.6;
+	}
+	.article-body :global(img) {
+		max-width: 100%;
+		height: auto;
+		border-radius: 8px;
+	}
+	.article-body :global(figure) {
+		margin: 1.2em 0;
+	}
+	.article-body :global(figure.fig--center) {
+		text-align: center;
+	}
+	.article-body :global(figure.fig--right) {
+		text-align: right;
+	}
+	.article-body :global(figcaption) {
+		font-size: 0.85rem;
+		color: var(--ink-soft);
+		margin-top: 6px;
+	}
+	.article-body :global(.align--center) {
+		text-align: center;
+	}
+	.article-body :global(.align--right) {
+		text-align: right;
+	}
+	.article-body :global(blockquote) {
+		border-left: 3px solid var(--line);
+		margin: 1em 0;
+		padding-left: 1em;
+		color: var(--ink-soft);
+	}
+	.article-body :global(pre) {
+		background: rgba(0, 0, 0, 0.05);
+		padding: 12px 14px;
+		border-radius: 8px;
+		overflow: auto;
+	}
+	.article-body :global(code) {
+		font-family: ui-monospace, monospace;
+		font-size: 0.9em;
+	}
+</style>

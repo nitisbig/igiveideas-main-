@@ -1,6 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sbFetch } from '../../lib/supabase';
+import {
+	parseArticle,
+	renderArticleHtml,
+	articleToPlainText,
+	articleImages,
+	wordCount,
+} from '../../lib/article';
 
 export const prerender = false;
 
@@ -11,13 +18,14 @@ type Idea = {
 	slug: string;
 	body: string;
 	published: boolean;
+	created_at: string | null;
 	updated_at: string | null;
 };
 
 let idea: Idea | null = null;
 try {
 	const rows = await sbFetch<Idea[]>('ideas', {
-		query: `?slug=eq.${encodeURIComponent(slug!)}&published=eq.true&select=title,slug,body,published,updated_at&limit=1`,
+		query: `?slug=eq.${encodeURIComponent(slug!)}&published=eq.true&select=title,slug,body,published,created_at,updated_at&limit=1`,
 	});
 	idea = rows?.[0] ?? null;
 } catch (err) {
@@ -28,11 +36,13 @@ if (!idea) {
 	return new Response('Not found', { status: 404 });
 }
 
-// Split the body into paragraphs on blank lines for readable rendering.
-const paragraphs = idea.body
-	.split(/\n\s*\n/)
-	.map((p) => p.trim())
-	.filter(Boolean);
+// One parse drives the rendered HTML, the meta description, the image list for
+// social/structured data, and the word count — all from the same block model.
+const blocks = parseArticle(idea.body);
+const html = renderArticleHtml(blocks);
+const plain = articleToPlainText(blocks);
+const images = articleImages(blocks);
+const words = wordCount(plain);
 
 /** Trim to ~155 chars on a word boundary for a clean meta description. */
 function metaExcerpt(text: string, max = 155): string {
@@ -43,8 +53,10 @@ function metaExcerpt(text: string, max = 155): string {
 	return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()}…`;
 }
 
-const description = metaExcerpt(paragraphs[0] ?? idea.title);
+const description = metaExcerpt(plain || idea.title);
 const url = `https://igiveideas.com/ideas/${idea.slug}`;
+const published = idea.created_at ? new Date(idea.created_at).toISOString() : undefined;
+const modified = idea.updated_at ? new Date(idea.updated_at).toISOString() : undefined;
 
 const jsonLd = {
 	'@context': 'https://schema.org',
@@ -53,20 +65,32 @@ const jsonLd = {
 	description,
 	url,
 	mainEntityOfPage: url,
+	...(images.length ? { image: images } : {}),
+	...(words ? { wordCount: words } : {}),
+	inLanguage: 'en',
 	author: { '@type': 'Person', name: 'nitesh', url: 'https://igiveideas.com/about' },
 	publisher: { '@type': 'Organization', name: 'igiveideas', url: 'https://igiveideas.com' },
-	...(idea.updated_at ? { dateModified: new Date(idea.updated_at).toISOString() } : {}),
+	...(published ? { datePublished: published } : {}),
+	...(modified ? { dateModified: modified } : {}),
 };
 ---
 
-<Layout title={`${idea.title} — igiveideas`} description={description} path={`/ideas/${idea.slug}`}>
-	<script type="application/ld+json" slot="head" set:html={JSON.stringify(jsonLd)} />
+<Layout
+	title={`${idea.title} — igiveideas`}
+	description={description}
+	path={`/ideas/${idea.slug}`}
+	ogType="article"
+>
+	<Fragment slot="head">
+		{published && <meta property="article:published_time" content={published} />}
+		{modified && <meta property="article:modified_time" content={modified} />}
+		{images[0] && <meta property="og:image" content={images[0]} />}
+		<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+	</Fragment>
 	<article class="article">
 		<p class="back"><a href="/ideas">← All ideas</a></p>
 		<h1>{idea.title}</h1>
-		<div class="body">
-			{paragraphs.map((p) => <p>{p}</p>)}
-		</div>
+		<div class="body article-body" set:html={html} />
 	</article>
 </Layout>
 
@@ -94,8 +118,95 @@ const jsonLd = {
 		font-size: clamp(1.5rem, 4vw, 2.2rem);
 		margin: 0 0 24px;
 	}
-	.body p {
+
+	/* Article body — shared visual language with the writer's live preview. */
+	.body :global(p) {
 		font-size: clamp(1.05rem, 2.4vw, 1.2rem);
 		margin: 0 0 20px;
+		line-height: 1.7;
+	}
+	.body :global(h2) {
+		font-weight: 600;
+		font-size: clamp(1.3rem, 3vw, 1.6rem);
+		margin: 1.6em 0 0.5em;
+	}
+	.body :global(h3) {
+		font-weight: 600;
+		font-size: clamp(1.15rem, 2.6vw, 1.35rem);
+		margin: 1.4em 0 0.4em;
+	}
+	.body :global(h4),
+	.body :global(h5),
+	.body :global(h6) {
+		font-weight: 600;
+		margin: 1.2em 0 0.4em;
+	}
+	.body :global(ul),
+	.body :global(ol) {
+		margin: 0 0 20px;
+		padding-left: 1.4em;
+		line-height: 1.7;
+	}
+	.body :global(li) {
+		margin: 0 0 6px;
+	}
+	.body :global(a) {
+		color: var(--accent);
+	}
+	.body :global(blockquote) {
+		border-left: 3px solid var(--line);
+		margin: 1.2em 0;
+		padding-left: 1em;
+		color: var(--ink-soft);
+		font-style: italic;
+	}
+	.body :global(hr) {
+		border: none;
+		border-top: 2px solid var(--line);
+		margin: 2em 0;
+	}
+	.body :global(pre) {
+		background: rgba(0, 0, 0, 0.05);
+		padding: 14px 16px;
+		border-radius: 8px;
+		overflow: auto;
+		margin: 0 0 20px;
+	}
+	.body :global(code) {
+		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+		font-size: 0.9em;
+	}
+	.body :global(pre code) {
+		font-size: 0.85em;
+	}
+
+	/* Figures — alignment set per-image in the writer. */
+	.body :global(figure) {
+		margin: 1.6em 0;
+	}
+	.body :global(figure img) {
+		max-width: 100%;
+		height: auto;
+		border-radius: 8px;
+	}
+	.body :global(figure.fig--center) {
+		text-align: center;
+	}
+	.body :global(figure.fig--right) {
+		text-align: right;
+	}
+	.body :global(figcaption) {
+		font-size: 0.9rem;
+		color: var(--ink-soft);
+		margin-top: 8px;
+		font-style: italic;
+	}
+
+	/* Text-block alignment. */
+	.body :global(.align--center) {
+		text-align: center;
+	}
+	.body :global(.align--right) {
+		text-align: right;
 	}
 </style>
